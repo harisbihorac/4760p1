@@ -1,0 +1,143 @@
+
+//
+// This file contains the helper functions for the driver program. Based off the method of invocation from driver.c, this libary opens the output file and input file (called input.txt)
+// then read the messages line by line from the input file and prints it to the output file with a randomly generated message type (either info/error/warning/fatal). If fatal message, the 
+// message is logged to savelog.log. Along with the message and message type, the current time is also printed unless -t was specified in which case the messages are printed on average 
+// every sec seconds.  
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <time.h>
+#include <unistd.h>
+#include "log.h"
+
+char *sptr;  // Pointer for malloc
+int s; 	     // Wait timer 
+FILE *ifptr; // Infile pointer
+FILE *ofptr; // Outfile pointer
+int eof = 0; // Flag for end of file -- 0 is false, 1 is true
+
+int addmsg(data_t data, char *ofile, int sec) {
+	srand(time(NULL)); // Seed for random numbers
+	char *file = ofile;
+
+	if(sec > 0) {
+		// Generate random time for average sec
+		s = (rand() % (2*sec - 0 + 1)) + 0;
+	}
+
+	// Open infile
+	if((ifptr = fopen("input.txt", "r")) == NULL) {
+		perror("driver: Error: ");
+		return -1;
+	}
+	
+	// Open outfile
+	if((ofptr = fopen(file, "w")) == NULL) {
+		perror("driver: Error: ");
+		return -1;
+	}
+
+	// Read from file until EOF
+	while(eof != 1) {
+		data.type = addType(data); // Add message type
+		getlog(data);		   // Add message string
+		data.string = sptr;
+		
+		// Check if fatal type, print to savelog
+		if(data.type == 'F') {
+			file = "savelog.log";
+			fclose(ofptr);
+			if((ofptr = fopen(file, "w")) == NULL) {
+				perror("driver: Error: ");
+				return -1;
+			}
+		}
+		
+		// If s > 0, then wait before printing message to log
+		if(s > 0) {
+			sleep(s);
+		}
+			
+		if(savelog(data, file) == -1) {
+			return -1;
+		}	
+	}
+
+	// Close in and out file
+	fclose(ifptr);
+	fclose(ofptr);
+	return 0;
+}
+
+// Add formatted time stamp
+void addTime(data_t data) {
+	time_t tm;
+	time(&tm);
+	struct tm * tp = localtime(&tm);
+	
+	fprintf(ofptr, "%.2d:%.2d:%.2d\n", tp->tm_hour, tp->tm_min, tp->tm_sec);
+}
+
+// Add random message type
+char addType(data_t data) {
+	int low = 1, up = 4, i, num;
+	num = (rand() % (up - low + 1)) + low;
+	printf("rad num = %i\n", num);
+	switch(num) {
+		case 1:
+			 return 'I';
+		case 2:
+			return 'W';
+		case 3:
+			return 'E';
+		case 4: 
+			return 'F';
+		default:
+			break;
+	}
+}
+
+// Frees the memory allocated for the string pointer and clear data
+void clearlog(data_t data) {
+	free(sptr);
+	data.time = 0;
+	data.type = NULL;
+	data.string = NULL;
+}
+
+// Allocates memory for message string
+char *getlog(data_t data) {
+	sptr = (char*) malloc(100 * sizeof(char)); // Allocate memory
+	if(sptr == NULL) {
+		perror("driver: Error: ");
+		return NULL; // Unsuccessful invocation
+	}
+	
+	fscanf(ifptr, "%[^\n]", sptr);
+	getc(ifptr);
+	// Check if EOF, set flag to true
+	if(feof(ifptr)) {
+		eof = 1;
+	}
+	printf("%s\n", sptr);
+	return sptr; // Successful invocation
+}
+
+// Prints log to outfile
+int savelog(data_t data, char *file) {
+	fprintf(ofptr, "Time Stamp: ");
+	addTime(data);
+	fprintf(ofptr, "Message Type: %c\n", data.type);
+	fprintf(ofptr, "Message String: %s\n\n", data.string);
+	
+	// If fatal message, stop program
+	if(data.type == 'F') {
+		return -1;
+	}
+
+	clearlog(data); // Free up memory
+
+	return 0;
+}

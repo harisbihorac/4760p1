@@ -1,0 +1,3 @@
+Exceeded the number of threads.
+Not enough memory to allocate kernel structures.
+Function not supported on this platform.
