@@ -5,6 +5,7 @@
  * 	./driver -h -- prints usage message
  * 	./driver -t sec -- prints log to messages.log on average every sec seconds
  * 	./driver [file name] -- prints log to user specified file name
+ *
  */
 
 #include <stdio.h>
